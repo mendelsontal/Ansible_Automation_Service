@@ -1,0 +1,6 @@
+apt_packages:
+  - python3-flask
+  - gunicorn
+  - python3-ipython
+  - python3-sqlalchemy
+  - nginx

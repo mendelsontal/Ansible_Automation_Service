@@ -7,28 +7,65 @@
 ---
 
 - name: Service Setup
-  hosts: all
+  hosts: web
   become: true
   tasks:
     - name: create user
       user:
-        name: "app_user"
+        name: "details_app"
         shell: /bin/bash
+        home: /home/details_app
         create_home: yes
-    - name: copy app files
-      copy:
-        content: |
-          #!/bin/bash
-          echo "Hello, world!"
-        dest: /tmp/hello.sh
+        groups: sudo
+        append: yes
+
+    - name: apt install
+      apt:
+        update_cache: true
+        name: "{{ apt_packages }}"
+
+    - name: Ensure /opt/details_app exists
+      file:
+        path: /opt/details_app
+        state: directory
+        owner: www-data
+        group: www-data
         mode: '0755'
 
+    - name: copy app files
+      copy:
+        src: ./details_app/src
+        dest: /opt/details_app
 
-    - name: Run Hello World script
-      shell: /tmp/hello.sh
-      register: hello_result
+    - name: create details_app.service
+      copy:
+        dest: /etc/systemd/system/details_app.service
+        content: |
+          [Unit]
+          Description=Gunicorn Service for details_app
+          After=network.target
 
+          [Service]
+          WorkingDirectory=/opt/details_app
+          ExecStart=/opt/details_app/run_gunicorn.sh
+          Restart=always
+          User=www-data
+          Group=www-data
 
-    - name: Show script output
-      debug:
-        var: hello_result.stdout
+          [Install]
+          WantedBy=multi-user.target
+        mode: '0644'
+
+    - name: Reload systemd daemon
+      systemd:
+        daemon_reload: yes
+
+    - name: Enable service
+      systemd:
+        name: details_app
+        enabled: yes
+
+    - name: Start service
+      systemd:
+        name: details_app
+        state: started
